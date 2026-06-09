@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Calendar, DateData } from 'react-native-calendars';
 import { useFocusEffect } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
 
@@ -9,7 +10,14 @@ import { DEFAULT_ABSENCE_FINE } from '../../src/constants/config';
 import { getAttendanceForDate, saveDailyAttendance } from '../../src/db/attendanceRepo';
 import { getActiveStudents } from '../../src/db/studentsRepo';
 import { AttendanceSession, AttendanceStatus, Student } from '../../src/types';
-import { formatDisplayDate, getSessionLabel, getSessionsForDate, toDateKey } from '../../src/utils/dateUtils';
+import {
+  formatDisplayDate,
+  fromDateKey,
+  getSessionLabel,
+  getSessionsForDate,
+  isBeforeDateKey,
+  toDateKey,
+} from '../../src/utils/dateUtils';
 
 type AttendanceSelections = Record<string, Partial<Record<AttendanceSession, AttendanceStatus>>>;
 
@@ -40,18 +48,24 @@ const statusOptions = [
 }[];
 
 export default function AttendanceScreen() {
-  const today = useMemo(() => new Date(), []);
-  const dateKey = toDateKey(today);
-  const sessions = useMemo(() => getSessionsForDate(today), [today]);
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const selectedDateObject = useMemo(() => fromDateKey(selectedDate), [selectedDate]);
+  const sessions = useMemo(() => getSessionsForDate(selectedDateObject), [selectedDateObject]);
+  const isPastDate = isBeforeDateKey(selectedDate, todayKey);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [selections, setSelections] = useState<AttendanceSelections>({});
+  const [hasSavedAttendance, setHasSavedAttendance] = useState(false);
+  const [isPastEditMode, setIsPastEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const isEditable = !isPastDate || isPastEditMode;
 
   const loadAttendance = useCallback(async () => {
     const [studentRows, attendanceRows] = await Promise.all([
       getActiveStudents(),
-      getAttendanceForDate(dateKey),
+      getAttendanceForDate(selectedDate),
     ]);
 
     const nextSelections: AttendanceSelections = {};
@@ -72,7 +86,8 @@ export default function AttendanceScreen() {
 
     setStudents(studentRows);
     setSelections(nextSelections);
-  }, [dateKey, sessions]);
+    setHasSavedAttendance(attendanceRows.length > 0);
+  }, [selectedDate, sessions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,7 +97,33 @@ export default function AttendanceScreen() {
     }, [loadAttendance])
   );
 
+  const selectDate = (day: DateData) => {
+    if (day.dateString > todayKey) {
+      return;
+    }
+
+    setSelectedDate(day.dateString);
+    setIsPastEditMode(false);
+  };
+
+  const confirmPastEdit = () => {
+    Alert.alert(
+      hasSavedAttendance ? 'Edit past attendance?' : 'Mark past attendance?',
+      hasSavedAttendance
+        ? 'You can correct late, leave, or forgotten marks. Fine ledger entries will update if absence status changes.'
+        : 'No attendance is saved for this date. You can add it now.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', onPress: () => setIsPastEditMode(true) },
+      ]
+    );
+  };
+
   const updateStatus = (studentId: string, session: AttendanceSession, status: AttendanceStatus) => {
+    if (!isEditable) {
+      return;
+    }
+
     setSelections((current) => ({
       ...current,
       [studentId]: {
@@ -96,7 +137,7 @@ export default function AttendanceScreen() {
     const records = students.flatMap((student) =>
       sessions.map((session) => ({
         studentId: student.id,
-        date: dateKey,
+        date: selectedDate,
         session,
         status: selections[student.id]?.[session] ?? 'present',
       }))
@@ -106,7 +147,8 @@ export default function AttendanceScreen() {
       setIsSaving(true);
       await saveDailyAttendance(records);
       await loadAttendance();
-      Alert.alert('Attendance saved', 'Today’s attendance has been saved successfully.');
+      setIsPastEditMode(false);
+      Alert.alert('Attendance saved', 'Attendance has been saved successfully.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to save attendance.';
       Alert.alert('Save failed', message);
@@ -122,11 +164,49 @@ export default function AttendanceScreen() {
     );
   }, 0);
 
+  const markedDates = useMemo(
+    () => ({
+      [selectedDate]: {
+        selected: true,
+        selectedColor: colors.primary,
+        selectedTextColor: colors.surface,
+      },
+    }),
+    [selectedDate]
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.calendarCard}>
+        <Calendar
+          current={selectedDate}
+          maxDate={todayKey}
+          markedDates={markedDates}
+          onDayPress={selectDate}
+          hideExtraDays
+          disableAllTouchEventsForDisabledDays
+          theme={{
+            calendarBackground: colors.surface,
+            textSectionTitleColor: colors.textSecondary,
+            selectedDayBackgroundColor: colors.primary,
+            selectedDayTextColor: colors.surface,
+            todayTextColor: colors.success,
+            dayTextColor: colors.textPrimary,
+            textDisabledColor: colors.border,
+            arrowColor: colors.primary,
+            monthTextColor: colors.textPrimary,
+            textMonthFontWeight: '800',
+            textDayFontWeight: '700',
+            textDayHeaderFontWeight: '800',
+          }}
+        />
+      </View>
+
       <View style={styles.header}>
-        <Text style={styles.title}>{formatDisplayDate(today)}</Text>
-        <Text style={styles.dateText}>Daily Attendance | Offline classroom register</Text>
+        <Text style={styles.title}>{formatDisplayDate(selectedDateObject)}</Text>
+        <Text style={styles.dateText}>
+          {isEditable ? 'Editable attendance register' : 'History view | Tap edit to correct this date'}
+        </Text>
       </View>
 
       <View style={styles.summaryRow}>
@@ -147,17 +227,36 @@ export default function AttendanceScreen() {
       </View>
 
       <View style={styles.notice}>
-        <Feather name="info" color={colors.primary} size={18} />
+        <Feather name={isEditable ? 'info' : 'clock'} color={colors.primary} size={18} />
         <Text style={styles.noticeText}>
-          Absent marks automatically add a Rs. {DEFAULT_ABSENCE_FINE} fine per session.
+          {isEditable
+            ? `Absent marks automatically add a Rs. ${DEFAULT_ABSENCE_FINE} fine per session.`
+            : hasSavedAttendance
+              ? 'This is saved attendance history. Use edit only when a correction is needed.'
+              : 'No attendance is saved for this date yet. Use edit to add past attendance.'}
         </Text>
       </View>
+
+      {isPastDate ? (
+        <Pressable style={styles.editPastButton} onPress={confirmPastEdit}>
+          <Feather name={hasSavedAttendance ? 'edit-2' : 'plus-circle'} color={colors.primary} size={18} />
+          <Text style={styles.editPastButtonText}>
+            {hasSavedAttendance ? 'Edit Past Attendance' : 'Mark Past Attendance'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {students.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather name="users" color={colors.textMuted} size={30} />
           <Text style={styles.emptyTitle}>No active students</Text>
           <Text style={styles.emptyText}>Add students first, then return here to mark attendance.</Text>
+        </View>
+      ) : !isEditable && !hasSavedAttendance ? (
+        <View style={styles.emptyState}>
+          <Feather name="calendar" color={colors.textMuted} size={30} />
+          <Text style={styles.emptyTitle}>No attendance saved</Text>
+          <Text style={styles.emptyText}>This date has no saved attendance record yet.</Text>
         </View>
       ) : (
         students.map((student) => (
@@ -183,18 +282,22 @@ export default function AttendanceScreen() {
             {sessions.map((session) => (
               <View key={session} style={styles.sessionBlock}>
                 <Text style={styles.sessionLabel}>{getSessionLabel(session)}</Text>
-                <SegmentedControl
-                  options={statusOptions}
-                  value={selections[student.id]?.[session] ?? 'present'}
-                  onChange={(status) => updateStatus(student.id, session, status)}
-                />
+                {isEditable ? (
+                  <SegmentedControl
+                    options={statusOptions}
+                    value={selections[student.id]?.[session] ?? 'present'}
+                    onChange={(status) => updateStatus(student.id, session, status)}
+                  />
+                ) : (
+                  <StatusBadge status={selections[student.id]?.[session] ?? 'present'} />
+                )}
               </View>
             ))}
           </View>
         ))
       )}
 
-      {students.length > 0 ? (
+      {students.length > 0 && isEditable ? (
         <Pressable
           style={[styles.saveButton, isSaving ? styles.disabledButton : null]}
           onPress={saveAttendance}
@@ -205,6 +308,20 @@ export default function AttendanceScreen() {
         </Pressable>
       ) : null}
     </ScrollView>
+  );
+}
+
+function StatusBadge({ status }: { status: AttendanceStatus }) {
+  const stylesByStatus = {
+    present: { backgroundColor: colors.successSoft, color: colors.success, label: 'Present' },
+    absent: { backgroundColor: colors.dangerSoft, color: colors.danger, label: 'Absent' },
+    leave: { backgroundColor: colors.surfaceMuted, color: colors.primary, label: 'Leave' },
+  }[status];
+
+  return (
+    <View style={[styles.statusBadge, { backgroundColor: stylesByStatus.backgroundColor }]}>
+      <Text style={[styles.statusBadgeText, { color: stylesByStatus.color }]}>{stylesByStatus.label}</Text>
+    </View>
   );
 }
 
@@ -229,12 +346,20 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 116,
   },
+  calendarCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
   header: {
     marginBottom: 18,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: '800',
   },
   dateText: {
@@ -287,6 +412,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 19,
+  },
+  editPastButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 14,
+    minHeight: 48,
+  },
+  editPastButtonText: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '800',
   },
   emptyState: {
     alignItems: 'center',
@@ -373,6 +515,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 8,
     textTransform: 'uppercase',
+  },
+  statusBadge: {
+    alignItems: 'center',
+    borderRadius: 6,
+    minHeight: 42,
+    justifyContent: 'center',
+  },
+  statusBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
   saveButton: {
     alignItems: 'center',

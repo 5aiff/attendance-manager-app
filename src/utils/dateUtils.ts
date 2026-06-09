@@ -18,6 +18,15 @@ export function getSessionsForDate(date: Date): AttendanceSession[] {
   return ['morning', 'afternoon'];
 }
 
+export function fromDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function isBeforeDateKey(leftDateKey: string, rightDateKey: string) {
+  return leftDateKey < rightDateKey;
+}
+
 export function getMonthBounds(date: Date) {
   const currentMonthStart = new Date(date.getFullYear(), date.getMonth(), 1);
   const nextMonthStart = new Date(date.getFullYear(), date.getMonth() + 1, 1);
