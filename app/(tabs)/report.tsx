@@ -159,7 +159,7 @@ function getInitials(name: string) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    padding: 16,
+    padding: 18,
     paddingBottom: 116,
   },
   header: {
@@ -175,8 +175,10 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: 28,
+    borderWidth: 1,
     height: 56,
     justifyContent: 'center',
     width: 56,
@@ -185,7 +187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -212,7 +214,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: 24,
     borderWidth: 1,
     flex: 1,
     padding: 16,
@@ -237,13 +239,18 @@ const styles = StyleSheet.create({
   },
   table: {
     backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 28,
+    borderWidth: 1,
     minWidth: 660,
+    overflow: 'hidden',
   },
   tableHeader: {
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    paddingBottom: 10,
+    paddingBottom: 14,
+    paddingTop: 16,
   },
   columnHeader: {
     color: colors.textSecondary,
@@ -274,15 +281,15 @@ const styles = StyleSheet.create({
   },
   initialsBadge: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
+    backgroundColor: colors.primaryDark,
+    borderRadius: 22,
     height: 44,
     justifyContent: 'center',
     marginRight: 12,
     width: 44,
   },
   initialsText: {
-    color: colors.primary,
+    color: colors.surface,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -312,7 +319,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     marginTop: 16,
     padding: 30,

@@ -65,6 +65,17 @@ export default function StudentsScreen() {
     );
   }, [searchQuery, students]);
 
+  const groupedStudents = useMemo(() => {
+    const groups = new Map<string, Student[]>();
+
+    for (const student of filteredStudents) {
+      const groupKey = student.name.trim().charAt(0).toUpperCase() || '#';
+      groups.set(groupKey, [...(groups.get(groupKey) ?? []), student]);
+    }
+
+    return [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
+  }, [filteredStudents]);
+
   const updateField = (field: keyof StudentFormState, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
@@ -216,32 +227,41 @@ export default function StudentsScreen() {
             </Text>
           </View>
         ) : (
-          filteredStudents.map((student) => (
-            <View key={student.id} style={styles.studentCard}>
-              {student.imageUri ? (
-                <Image source={{ uri: student.imageUri }} style={styles.cardAvatar} />
-              ) : (
-                <View style={styles.cardAvatarFallback}>
-                  <Text style={styles.cardAvatarText}>{getInitials(student.name)}</Text>
-                  <View style={styles.statusDot} />
-                </View>
-              )}
+          groupedStudents.map(([letter, group]) => (
+            <View key={letter} style={styles.groupBlock}>
+              <Text style={styles.groupLabel}>{letter}</Text>
+              <View style={styles.groupCard}>
+                {group.map((student, index) => (
+                  <View
+                    key={student.id}
+                    style={[styles.studentCard, index > 0 ? styles.studentCardDivider : null]}
+                  >
+                    {student.imageUri ? (
+                      <Image source={{ uri: student.imageUri }} style={styles.cardAvatar} />
+                    ) : (
+                      <View style={styles.cardAvatarFallback}>
+                        <Text style={styles.cardAvatarText}>{getInitials(student.name)}</Text>
+                      </View>
+                    )}
 
-              <View style={styles.studentDetails}>
-                <Text style={styles.studentName}>{student.name}</Text>
-                <Text style={styles.studentMeta}>
-                  ID {student.studentCode} | Roll {student.rollNumber}
-                </Text>
-                {student.fatherName ? <Text style={styles.studentMeta}>Father: {student.fatherName}</Text> : null}
-              </View>
+                    <View style={styles.studentDetails}>
+                      <Text style={styles.studentName}>{student.name}</Text>
+                      <Text style={styles.studentMeta}>
+                        ID {student.studentCode} | Roll {student.rollNumber}
+                      </Text>
+                      {student.fatherName ? <Text style={styles.studentMeta}>Father: {student.fatherName}</Text> : null}
+                    </View>
 
-              <View style={styles.cardActions}>
-                <Pressable style={styles.iconButton} onPress={() => startEditing(student)}>
-                  <Feather name="edit-2" color={colors.primary} size={18} />
-                </Pressable>
-                <Pressable style={styles.iconButton} onPress={() => confirmDelete(student)}>
-                  <Feather name="trash-2" color={colors.danger} size={18} />
-                </Pressable>
+                    <View style={styles.cardActions}>
+                      <Pressable style={styles.iconButton} onPress={() => startEditing(student)}>
+                        <Feather name="edit-2" color={colors.textSecondary} size={18} />
+                      </Pressable>
+                      <Pressable style={styles.iconButton} onPress={() => confirmDelete(student)}>
+                        <Feather name="trash-2" color={colors.danger} size={18} />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
               </View>
             </View>
           ))
@@ -370,7 +390,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 16,
+    padding: 18,
     paddingBottom: 116,
   },
   header: {
@@ -388,15 +408,13 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 999,
     flexDirection: 'row',
     gap: 12,
     marginBottom: 18,
-    minHeight: 56,
-    paddingHorizontal: 14,
+    minHeight: 64,
+    paddingHorizontal: 18,
   },
   searchInput: {
     color: colors.textPrimary,
@@ -407,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 30,
   },
@@ -424,16 +442,34 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
+  groupBlock: {
+    marginBottom: 22,
+  },
+  groupLabel: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 10,
+    marginLeft: 14,
+  },
+  groupCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   studentCard: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
     flexDirection: 'row',
-    marginBottom: 12,
-    minHeight: 74,
-    padding: 14,
+    minHeight: 92,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  studentCardDivider: {
+    borderTopColor: colors.divider,
+    borderTopWidth: 1,
   },
   cardAvatar: {
     backgroundColor: colors.surfaceMuted,
@@ -444,7 +480,7 @@ const styles = StyleSheet.create({
   cardAvatarFallback: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: 26,
     height: 52,
     justifyContent: 'center',
     position: 'relative',
@@ -488,7 +524,7 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     height: 38,
     justifyContent: 'center',
@@ -496,7 +532,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     alignItems: 'center',
-    backgroundColor: colors.success,
+    backgroundColor: colors.primaryDark,
     borderRadius: 18,
     bottom: 96,
     height: 64,
@@ -517,7 +553,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 28,
     maxHeight: '88%',
     padding: 18,
     shadowColor: colors.primary,
@@ -574,10 +610,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 12,
     color: colors.textPrimary,
     fontSize: 15,
     minHeight: 48,
@@ -612,7 +646,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: 'center',
     backgroundColor: colors.success,
-    borderRadius: 6,
+    borderRadius: 24,
     justifyContent: 'center',
     minHeight: 48,
     minWidth: 104,

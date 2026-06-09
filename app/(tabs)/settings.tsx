@@ -268,7 +268,7 @@ function CurrencyInput({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    padding: 16,
+    padding: 18,
     paddingBottom: 116,
   },
   header: {
@@ -286,11 +286,13 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 28,
     marginBottom: 14,
-    padding: 16,
+    padding: 18,
+    shadowColor: '#000000',
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
   },
   cardHeader: {
     alignItems: 'center',
@@ -314,10 +316,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 12,
     color: colors.textPrimary,
     fontSize: 16,
     minHeight: 50,
@@ -325,10 +325,8 @@ const styles = StyleSheet.create({
   },
   currencyInputWrap: {
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 12,
     flexDirection: 'row',
     minHeight: 50,
   },
@@ -354,10 +352,8 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 14,
@@ -396,8 +392,8 @@ const styles = StyleSheet.create({
   aboutRow: {
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 8,
+    borderColor: colors.divider,
+    borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
     marginBottom: 14,
@@ -405,8 +401,8 @@ const styles = StyleSheet.create({
   },
   aboutIcon: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 14,
+    backgroundColor: '#9AF49B',
+    borderRadius: 24,
     height: 48,
     justifyContent: 'center',
     width: 48,
@@ -423,12 +419,12 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     alignItems: 'center',
-    backgroundColor: colors.success,
-    borderRadius: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 32,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
-    minHeight: 54,
+    minHeight: 58,
   },
   disabledButton: {
     opacity: 0.65,

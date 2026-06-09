@@ -198,6 +198,7 @@ export default function FinesScreen() {
           <View style={styles.sheet}>
             {selectedStudent ? (
               <>
+                <View style={styles.sheetHandle} />
                 <View style={styles.sheetHeader}>
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>{getInitials(selectedStudent.name)}</Text>
@@ -249,7 +250,7 @@ export default function FinesScreen() {
 
                 <View style={styles.sheetActions}>
                   <Pressable style={styles.outlineDangerButton} onPress={() => openActionModal('fine')}>
-                    <Feather name="plus" color={colors.danger} size={22} />
+                    <Feather name="plus" color={colors.surface} size={22} />
                     <Text style={styles.outlineDangerText}>Add Fine</Text>
                   </Pressable>
                   <Pressable
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: 16,
+    padding: 18,
     paddingBottom: 116,
   },
   header: {
@@ -384,8 +385,10 @@ const styles = StyleSheet.create({
   },
   exportButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: 24,
+    borderWidth: 1,
     height: 48,
     justifyContent: 'center',
     width: 48,
@@ -404,10 +407,10 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceMuted,
     borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 0,
     flexDirection: 'row',
     gap: 12,
     marginBottom: 18,
@@ -422,7 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 22,
     borderWidth: 1,
     flexDirection: 'row',
     marginBottom: 12,
@@ -430,8 +433,8 @@ const styles = StyleSheet.create({
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 14,
+    backgroundColor: colors.primaryDark,
+    borderRadius: 26,
     height: 52,
     justifyContent: 'center',
     width: 52,
@@ -460,7 +463,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   balanceValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
   },
   balanceLabel: {
@@ -480,7 +483,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     padding: 30,
   },
@@ -511,10 +514,18 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     maxHeight: '82%',
     paddingBottom: 24,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    backgroundColor: colors.divider,
+    borderRadius: 999,
+    height: 6,
+    marginTop: 14,
+    width: 58,
   },
   sheetHeader: {
     alignItems: 'center',
@@ -560,6 +571,7 @@ const styles = StyleSheet.create({
   statementItem: {
     alignItems: 'flex-start',
     flexDirection: 'row',
+    minHeight: 82,
     paddingBottom: 18,
   },
   timelineDot: {
@@ -578,7 +590,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   statementText: {
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: 16,
+    borderWidth: 1,
     flex: 1,
+    padding: 14,
   },
   statementTitle: {
     color: colors.textPrimary,
@@ -620,9 +637,8 @@ const styles = StyleSheet.create({
   },
   outlineDangerButton: {
     alignItems: 'center',
-    borderColor: colors.danger,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: '#5F6064',
+    borderRadius: 32,
     flex: 1,
     flexDirection: 'row',
     gap: 10,
@@ -630,14 +646,14 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   outlineDangerText: {
-    color: colors.danger,
+    color: colors.surface,
     fontSize: 16,
     fontWeight: '800',
   },
   settleButton: {
     alignItems: 'center',
     backgroundColor: colors.success,
-    borderRadius: 6,
+    borderRadius: 32,
     flex: 1,
     flexDirection: 'row',
     gap: 10,
@@ -661,7 +677,7 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 28,
     padding: 18,
     width: '100%',
   },
@@ -685,10 +701,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 6,
-    borderWidth: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 12,
     color: colors.textPrimary,
     fontSize: 16,
     minHeight: 50,
@@ -729,7 +743,7 @@ const styles = StyleSheet.create({
   saveFineButton: {
     alignItems: 'center',
     backgroundColor: colors.danger,
-    borderRadius: 6,
+    borderRadius: 24,
     justifyContent: 'center',
     minHeight: 48,
     minWidth: 104,
@@ -738,7 +752,7 @@ const styles = StyleSheet.create({
   savePaymentButton: {
     alignItems: 'center',
     backgroundColor: colors.success,
-    borderRadius: 6,
+    borderRadius: 24,
     justifyContent: 'center',
     minHeight: 48,
     minWidth: 104,

@@ -122,7 +122,7 @@ function InfoCard({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    padding: 16,
+    padding: 18,
     paddingBottom: 40,
   },
   topBar: {
@@ -133,8 +133,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderColor: colors.divider,
+    borderRadius: 23,
+    borderWidth: 1,
     height: 46,
     justifyContent: 'center',
     width: 46,
@@ -152,14 +154,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 12,
+    borderRadius: 28,
     borderWidth: 1,
     marginBottom: 14,
     padding: 22,
   },
   logoMark: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
     borderRadius: 22,
     height: 74,
     justifyContent: 'center',
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: 24,
     borderWidth: 1,
     marginBottom: 14,
     padding: 16,
@@ -195,8 +197,8 @@ const styles = StyleSheet.create({
   },
   cardIcon: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: 12,
+    backgroundColor: '#9AF49B',
+    borderRadius: 20,
     height: 40,
     justifyContent: 'center',
     width: 40,
