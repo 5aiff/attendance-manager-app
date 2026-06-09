@@ -4,25 +4,37 @@ import { useFocusEffect } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
 
 import { colors } from '../../src/constants/colors';
+import { getActiveClasses } from '../../src/db/classesRepo';
 import { getMonthlyReportRows } from '../../src/db/reportsRepo';
-import { MonthlyReportRow } from '../../src/types';
+import { ClassRoom, MonthlyReportRow } from '../../src/types';
 import { exportCsv } from '../../src/utils/csvExport';
 import { getMonthBounds } from '../../src/utils/dateUtils';
 
 export default function ReportScreen() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date());
   const [rows, setRows] = useState<MonthlyReportRow[]>([]);
+  const [classes, setClasses] = useState<ClassRoom[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
 
   const bounds = useMemo(() => getMonthBounds(selectedMonth), [selectedMonth]);
 
   const loadReport = useCallback(async () => {
+    const classRows = await getActiveClasses();
+    const activeClassId = selectedClassId || classRows[0]?.id || '';
+    setClasses(classRows);
+
+    if (!selectedClassId && activeClassId) {
+      setSelectedClassId(activeClassId);
+    }
+
     const reportRows = await getMonthlyReportRows(
       bounds.currentMonthStart,
       bounds.nextMonthStart,
-      bounds.previousMonthStart
+      bounds.previousMonthStart,
+      activeClassId
     );
     setRows(reportRows);
-  }, [bounds]);
+  }, [bounds, selectedClassId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,6 +83,29 @@ export default function ReportScreen() {
           <Feather name="share-2" color={colors.primary} size={22} />
         </Pressable>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.classTabs}>
+        {classes.map((classRoom) => {
+          const isActive = classRoom.id === selectedClassId;
+
+          return (
+            <Pressable
+              key={classRoom.id}
+              style={[styles.classTab, isActive ? styles.classTabActive : null]}
+              onPress={() => setSelectedClassId(classRoom.id)}
+            >
+              <Text style={[styles.classTabText, isActive ? styles.classTabTextActive : null]}>
+                {classRoom.name}
+              </Text>
+              {classRoom.subject ? (
+                <Text style={[styles.classTabSubject, isActive ? styles.classTabSubjectActive : null]}>
+                  {classRoom.subject}
+                </Text>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       <View style={styles.monthSelector}>
         <Pressable style={styles.monthButton} onPress={() => changeMonth(-1)}>
@@ -183,6 +218,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 56,
   },
+  classTabs: {
+    gap: 10,
+    paddingBottom: 14,
+  },
+  classTab: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 54,
+    minWidth: 112,
+    paddingHorizontal: 16,
+  },
+  classTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  classTabText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  classTabTextActive: {
+    color: colors.surface,
+  },
+  classTabSubject: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  classTabSubjectActive: {
+    color: colors.surface,
+    opacity: 0.75,
+  },
   monthSelector: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -262,12 +333,14 @@ const styles = StyleSheet.create({
     width: 90,
   },
   nameColumnHeader: {
+    paddingLeft: 16,
     textAlign: 'left',
     width: 300,
   },
   nameColumn: {
     alignItems: 'center',
     flexDirection: 'row',
+    paddingLeft: 16,
     width: 300,
   },
   reportRow: {

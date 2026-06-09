@@ -21,9 +21,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.divider,
-          height: 66 + bottomPadding,
+          height: 68 + bottomPadding,
           paddingBottom: bottomPadding,
-          paddingTop: 10,
+          paddingTop: 8,
         },
         tabBarItemStyle: {
           borderRadius: 28,
@@ -32,7 +32,7 @@ export default function TabsLayout() {
         },
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '700',
+          fontWeight: '800',
           lineHeight: 16,
         },
       }}
@@ -89,14 +89,21 @@ function TabIcon({
     <View
       style={{
         alignItems: 'center',
-        backgroundColor: focused ? '#9AF49B' : 'transparent',
-        borderRadius: 28,
-        height: 34,
+        backgroundColor: focused ? colors.primary : 'transparent',
+        borderColor: focused ? colors.primary : 'transparent',
+        borderRadius: 16,
+        borderWidth: 1,
+        height: 32,
         justifyContent: 'center',
-        minWidth: 58,
+        marginBottom: 2,
+        minWidth: 48,
+        shadowColor: '#000000',
+        shadowOffset: { height: 3, width: 0 },
+        shadowOpacity: focused ? 0.14 : 0,
+        shadowRadius: 8,
       }}
     >
-      <Feather name={name} color={focused ? colors.success : color} size={22} />
+      <Feather name={name} color={focused ? colors.surface : color} size={20} />
     </View>
   );
 }

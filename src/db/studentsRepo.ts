@@ -11,12 +11,17 @@ function mapStudent(row: StudentRow): Student {
   };
 }
 
-export async function getActiveStudents() {
+export async function getActiveStudents(classId?: string) {
   const db = await getDatabase();
 
-  const rows = await db.getAllAsync<StudentRow>(
-    'SELECT * FROM students WHERE isActive = 1 ORDER BY CAST(rollNumber AS INTEGER), rollNumber, name'
-  );
+  const rows = classId
+    ? await db.getAllAsync<StudentRow>(
+        'SELECT * FROM students WHERE isActive = 1 AND classId = ? ORDER BY CAST(rollNumber AS INTEGER), rollNumber, name',
+        [classId]
+      )
+    : await db.getAllAsync<StudentRow>(
+        'SELECT * FROM students WHERE isActive = 1 ORDER BY CAST(rollNumber AS INTEGER), rollNumber, name'
+      );
 
   return rows.map(mapStudent);
 }
@@ -29,12 +34,13 @@ export async function createStudent(input: StudentInput) {
   await db.runAsync(
     `
     INSERT INTO students (
-      id, studentCode, rollNumber, name, fatherName, address, imageUri, isActive, createdAt, updatedAt
+      id, classId, studentCode, rollNumber, name, fatherName, address, imageUri, isActive, createdAt, updatedAt
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     `,
     [
       id,
+      input.classId,
       input.studentCode.trim(),
       input.rollNumber.trim(),
       input.name.trim(),
@@ -57,6 +63,7 @@ export async function updateStudent(id: string, input: StudentInput) {
     `
     UPDATE students
     SET studentCode = ?,
+        classId = ?,
         rollNumber = ?,
         name = ?,
         fatherName = ?,
@@ -67,6 +74,7 @@ export async function updateStudent(id: string, input: StudentInput) {
     `,
     [
       input.studentCode.trim(),
+      input.classId,
       input.rollNumber.trim(),
       input.name.trim(),
       input.fatherName.trim(),

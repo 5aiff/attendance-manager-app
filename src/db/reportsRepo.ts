@@ -1,8 +1,26 @@
 import { getDatabase } from './database';
 import { MonthlyReportRow } from '../types';
 
-export async function getMonthlyReportRows(currentMonthStart: string, nextMonthStart: string, previousMonthStart: string) {
+export async function getMonthlyReportRows(
+  currentMonthStart: string,
+  nextMonthStart: string,
+  previousMonthStart: string,
+  classId?: string
+) {
   const db = await getDatabase();
+
+  const params = [
+    currentMonthStart,
+    nextMonthStart,
+    previousMonthStart,
+    currentMonthStart,
+    previousMonthStart,
+    nextMonthStart,
+  ];
+
+  if (classId) {
+    params.push(classId);
+  }
 
   return db.getAllAsync<MonthlyReportRow>(
     `
@@ -17,16 +35,10 @@ export async function getMonthlyReportRows(currentMonthStart: string, nextMonthS
     FROM students s
     LEFT JOIN attendance_records a ON a.studentId = s.id
     WHERE s.isActive = 1
+      ${classId ? 'AND s.classId = ?' : ''}
     GROUP BY s.id
     ORDER BY CAST(s.rollNumber AS INTEGER), s.rollNumber
     `,
-    [
-      currentMonthStart,
-      nextMonthStart,
-      previousMonthStart,
-      currentMonthStart,
-      previousMonthStart,
-      nextMonthStart,
-    ]
+    params
   );
 }

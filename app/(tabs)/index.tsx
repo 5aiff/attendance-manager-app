@@ -6,13 +6,16 @@ import Feather from '@expo/vector-icons/Feather';
 
 import { SegmentedControl } from '../../src/components/SegmentedControl';
 import { colors } from '../../src/constants/colors';
-import { DEFAULT_ABSENCE_FINE } from '../../src/constants/config';
 import { getAttendanceForDate, saveDailyAttendance } from '../../src/db/attendanceRepo';
+import { getActiveClasses } from '../../src/db/classesRepo';
+import { ClassDashboardSummary, getClassDashboardSummary } from '../../src/db/dashboardRepo';
 import { getActiveStudents } from '../../src/db/studentsRepo';
-import { AttendanceSession, AttendanceStatus, Student } from '../../src/types';
+import { getDailyFineAmount } from '../../src/storage/settingsStorage';
+import { AttendanceSession, AttendanceStatus, ClassRoom, Student } from '../../src/types';
 import {
   formatDisplayDate,
   fromDateKey,
+  getMonthBounds,
   getSessionLabel,
   getSessionsForDate,
   isBeforeDateKey,
@@ -59,13 +62,48 @@ export default function AttendanceScreen() {
   const [hasSavedAttendance, setHasSavedAttendance] = useState(false);
   const [isPastEditMode, setIsPastEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [dailyFineAmount, setDailyFineAmount] = useState(0);
+  const [classes, setClasses] = useState<ClassRoom[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [dashboardSummary, setDashboardSummary] = useState<ClassDashboardSummary>({
+    presentCount: 0,
+    absentCount: 0,
+    leaveCount: 0,
+    monthCollected: 0,
+    pendingFines: 0,
+  });
 
   const isEditable = !isPastDate || isPastEditMode;
 
   const loadAttendance = useCallback(async () => {
-    const [studentRows, attendanceRows] = await Promise.all([
-      getActiveStudents(),
-      getAttendanceForDate(selectedDate),
+    const classRows = await getActiveClasses();
+    const activeClassId = selectedClassId || classRows[0]?.id || '';
+
+    setClasses(classRows);
+
+    if (!selectedClassId && activeClassId) {
+      setSelectedClassId(activeClassId);
+    }
+
+    const monthBounds = getMonthBounds(selectedDateObject);
+    const [studentRows, attendanceRows, savedFineAmount, summary] = await Promise.all([
+      activeClassId ? getActiveStudents(activeClassId) : Promise.resolve([]),
+      activeClassId ? getAttendanceForDate(selectedDate, activeClassId) : Promise.resolve([]),
+      getDailyFineAmount(),
+      activeClassId
+        ? getClassDashboardSummary(
+            activeClassId,
+            selectedDate,
+            monthBounds.currentMonthStart,
+            monthBounds.nextMonthStart
+          )
+        : Promise.resolve({
+            presentCount: 0,
+            absentCount: 0,
+            leaveCount: 0,
+            monthCollected: 0,
+            pendingFines: 0,
+          }),
     ]);
 
     const nextSelections: AttendanceSelections = {};
@@ -87,7 +125,9 @@ export default function AttendanceScreen() {
     setStudents(studentRows);
     setSelections(nextSelections);
     setHasSavedAttendance(attendanceRows.length > 0);
-  }, [selectedDate, sessions]);
+    setDailyFineAmount(savedFineAmount);
+    setDashboardSummary(summary);
+  }, [selectedClassId, selectedDate, selectedDateObject, sessions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -134,9 +174,15 @@ export default function AttendanceScreen() {
   };
 
   const saveAttendance = async () => {
+    if (!selectedClassId) {
+      Alert.alert('Class required', 'Please add or select a class before saving attendance.');
+      return;
+    }
+
     const records = students.flatMap((student) =>
       sessions.map((session) => ({
         studentId: student.id,
+        classId: selectedClassId,
         date: selectedDate,
         session,
         status: selections[student.id]?.[session] ?? 'present',
@@ -177,6 +223,29 @@ export default function AttendanceScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.classTabs}>
+        {classes.map((classRoom) => {
+          const isActive = classRoom.id === selectedClassId;
+
+          return (
+            <Pressable
+              key={classRoom.id}
+              style={[styles.classTab, isActive ? styles.classTabActive : null]}
+              onPress={() => setSelectedClassId(classRoom.id)}
+            >
+              <Text style={[styles.classTabText, isActive ? styles.classTabTextActive : null]}>
+                {classRoom.name}
+              </Text>
+              {classRoom.subject ? (
+                <Text style={[styles.classTabSubject, isActive ? styles.classTabSubjectActive : null]}>
+                  {classRoom.subject}
+                </Text>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <View style={styles.calendarCard}>
         <Calendar
           current={selectedDate}
@@ -209,6 +278,17 @@ export default function AttendanceScreen() {
         </Text>
       </View>
 
+      <View style={styles.dashboardCard}>
+        <Text style={styles.dashboardTitle}>Teacher Dashboard</Text>
+        <View style={styles.dashboardGrid}>
+          <DashboardMetric label="Present" value={`${dashboardSummary.presentCount}`} tone="success" />
+          <DashboardMetric label="Absent" value={`${dashboardSummary.absentCount}`} tone="danger" />
+          <DashboardMetric label="Leave" value={`${dashboardSummary.leaveCount}`} tone="warning" />
+          <DashboardMetric label="Collected" value={`Rs. ${dashboardSummary.monthCollected.toFixed(0)}`} tone="success" />
+          <DashboardMetric label="Pending" value={`Rs. ${dashboardSummary.pendingFines.toFixed(0)}`} tone="danger" />
+        </View>
+      </View>
+
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{students.length}</Text>
@@ -230,7 +310,7 @@ export default function AttendanceScreen() {
         <Feather name={isEditable ? 'info' : 'clock'} color={colors.primary} size={18} />
         <Text style={styles.noticeText}>
           {isEditable
-            ? `Absent marks automatically add a Rs. ${DEFAULT_ABSENCE_FINE} fine per session.`
+            ? `Absent marks automatically add a Rs. ${dailyFineAmount} fine per session.`
             : hasSavedAttendance
               ? 'This is saved attendance history. Use edit only when a correction is needed.'
               : 'No attendance is saved for this date yet. Use edit to add past attendance.'}
@@ -249,8 +329,8 @@ export default function AttendanceScreen() {
       {students.length === 0 ? (
         <View style={styles.emptyState}>
           <Feather name="users" color={colors.textMuted} size={30} />
-          <Text style={styles.emptyTitle}>No active students</Text>
-          <Text style={styles.emptyText}>Add students first, then return here to mark attendance.</Text>
+          <Text style={styles.emptyTitle}>No students in this class</Text>
+          <Text style={styles.emptyText}>Add students to the selected class, then return here to mark attendance.</Text>
         </View>
       ) : !isEditable && !hasSavedAttendance ? (
         <View style={styles.emptyState}>
@@ -311,6 +391,25 @@ export default function AttendanceScreen() {
   );
 }
 
+function DashboardMetric({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: 'success' | 'danger' | 'warning';
+  value: string;
+}) {
+  const toneColor = tone === 'success' ? colors.success : tone === 'danger' ? colors.danger : colors.warning;
+
+  return (
+    <View style={styles.dashboardMetric}>
+      <Text style={[styles.dashboardMetricValue, { color: toneColor }]}>{value}</Text>
+      <Text style={styles.dashboardMetricLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function StatusBadge({ status }: { status: AttendanceStatus }) {
   const stylesByStatus = {
     present: { backgroundColor: colors.successSoft, color: colors.success, label: 'Present' },
@@ -354,8 +453,80 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     overflow: 'hidden',
   },
+  classTabs: {
+    gap: 10,
+    paddingBottom: 14,
+  },
+  classTab: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 54,
+    minWidth: 112,
+    paddingHorizontal: 16,
+  },
+  classTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  classTabText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  classTabTextActive: {
+    color: colors.surface,
+  },
+  classTabSubject: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  classTabSubjectActive: {
+    color: colors.surface,
+    opacity: 0.75,
+  },
   header: {
     marginBottom: 18,
+  },
+  dashboardCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 16,
+  },
+  dashboardTitle: {
+    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  dashboardMetric: {
+    backgroundColor: colors.surfaceContainer,
+    borderRadius: 16,
+    minWidth: '30%',
+    padding: 12,
+  },
+  dashboardMetricValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  dashboardMetricLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 3,
+    textTransform: 'uppercase',
   },
   title: {
     color: colors.textPrimary,

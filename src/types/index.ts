@@ -4,8 +4,23 @@ export type AttendanceSession = 'morning' | 'afternoon' | 'single';
 
 export type LedgerEntryType = 'fine' | 'payment';
 
+export interface ClassRoom {
+  id: string;
+  name: string;
+  subject: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClassRoomInput {
+  name: string;
+  subject: string;
+}
+
 export interface Student {
   id: string;
+  classId: string;
   studentCode: string;
   rollNumber: string;
   name: string;
@@ -18,6 +33,7 @@ export interface Student {
 }
 
 export interface StudentInput {
+  classId: string;
   studentCode: string;
   rollNumber: string;
   name: string;
@@ -29,6 +45,7 @@ export interface StudentInput {
 export interface AttendanceRecord {
   id: string;
   studentId: string;
+  classId: string;
   date: string;
   session: AttendanceSession;
   status: AttendanceStatus;
@@ -38,6 +55,7 @@ export interface AttendanceRecord {
 
 export interface AttendanceInput {
   studentId: string;
+  classId: string;
   date: string;
   session: AttendanceSession;
   status: AttendanceStatus;

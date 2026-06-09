@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -15,9 +15,20 @@ import { useFocusEffect } from 'expo-router';
 import Feather from '@expo/vector-icons/Feather';
 
 import { colors } from '../../src/constants/colors';
-import { addLedgerEntry, FineBalanceRow, getFineBalances, getLedgerForStudent } from '../../src/db/finesRepo';
-import { LedgerEntry } from '../../src/types';
+import { getActiveClasses } from '../../src/db/classesRepo';
+import {
+  addLedgerEntry,
+  FineBalanceRow,
+  FineMonthEntry,
+  FineMonthTotals,
+  getFineBalances,
+  getFineMonthEntries,
+  getFineMonthTotals,
+  getLedgerForStudent,
+} from '../../src/db/finesRepo';
+import { ClassRoom, LedgerEntry } from '../../src/types';
 import { exportCsv } from '../../src/utils/csvExport';
+import { getMonthBounds } from '../../src/utils/dateUtils';
 
 type LedgerAction = 'fine' | 'payment';
 
@@ -29,11 +40,32 @@ export default function FinesScreen() {
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date());
+  const [monthTotals, setMonthTotals] = useState<FineMonthTotals>({ totalFines: 0, totalPayments: 0 });
+  const [monthEntries, setMonthEntries] = useState<FineMonthEntry[]>([]);
+  const [classes, setClasses] = useState<ClassRoom[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState('');
+
+  const bounds = useMemo(() => getMonthBounds(selectedMonth), [selectedMonth]);
 
   const loadBalances = useCallback(async () => {
-    const rows = await getFineBalances();
+    const classRows = await getActiveClasses();
+    const activeClassId = selectedClassId || classRows[0]?.id || '';
+    setClasses(classRows);
+
+    if (!selectedClassId && activeClassId) {
+      setSelectedClassId(activeClassId);
+    }
+
+    const [rows, totals, entries] = await Promise.all([
+      getFineBalances(activeClassId),
+      getFineMonthTotals(bounds.currentMonthStart, bounds.nextMonthStart, activeClassId),
+      getFineMonthEntries(bounds.currentMonthStart, bounds.nextMonthStart, activeClassId),
+    ]);
     setBalances(rows);
-  }, []);
+    setMonthTotals(totals);
+    setMonthEntries(entries);
+  }, [bounds, selectedClassId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -98,12 +130,16 @@ export default function FinesScreen() {
         reason,
       });
 
-      const [balanceRows, ledgerRows] = await Promise.all([
-        getFineBalances(),
+      const [balanceRows, ledgerRows, totals, entries] = await Promise.all([
+        getFineBalances(selectedClassId),
         getLedgerForStudent(selectedStudent.studentId),
+        getFineMonthTotals(bounds.currentMonthStart, bounds.nextMonthStart, selectedClassId),
+        getFineMonthEntries(bounds.currentMonthStart, bounds.nextMonthStart, selectedClassId),
       ]);
       setBalances(balanceRows);
       setStatement(ledgerRows);
+      setMonthTotals(totals);
+      setMonthEntries(entries);
       setSelectedStudent(balanceRows.find((row) => row.studentId === selectedStudent.studentId) ?? selectedStudent);
       closeActionModal();
     } catch (error) {
@@ -115,6 +151,10 @@ export default function FinesScreen() {
   };
 
   const totalOutstanding = balances.reduce((sum, row) => sum + row.balance, 0);
+
+  const changeMonth = (offset: number) => {
+    setSelectedMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
 
   const exportBalances = async () => {
     if (balances.length === 0) {
@@ -155,6 +195,79 @@ export default function FinesScreen() {
               <Text style={styles.totalValue}>{formatCurrency(totalOutstanding)}</Text>
             </View>
           </View>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.classTabs}>
+          {classes.map((classRoom) => {
+            const isActive = classRoom.id === selectedClassId;
+
+            return (
+              <Pressable
+                key={classRoom.id}
+                style={[styles.classTab, isActive ? styles.classTabActive : null]}
+                onPress={() => {
+                  setSelectedClassId(classRoom.id);
+                  closeStatement();
+                }}
+              >
+                <Text style={[styles.classTabText, isActive ? styles.classTabTextActive : null]}>
+                  {classRoom.name}
+                </Text>
+                {classRoom.subject ? (
+                  <Text style={[styles.classTabSubject, isActive ? styles.classTabSubjectActive : null]}>
+                    {classRoom.subject}
+                  </Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.monthSelector}>
+          <Pressable style={styles.monthButton} onPress={() => changeMonth(-1)}>
+            <Feather name="chevron-left" color={colors.primary} size={22} />
+          </Pressable>
+          <Text style={styles.monthText}>{formatMonth(selectedMonth)}</Text>
+          <Pressable style={styles.monthButton} onPress={() => changeMonth(1)}>
+            <Feather name="chevron-right" color={colors.primary} size={22} />
+          </Pressable>
+        </View>
+
+        <View style={styles.monthSummaryCard}>
+          <View>
+            <Text style={styles.totalLabel}>Total Fine for {formatMonth(selectedMonth)}</Text>
+            <Text style={styles.monthFineValue}>{formatCurrency(monthTotals.totalFines)}</Text>
+          </View>
+          <View style={styles.monthPaymentBlock}>
+            <Text style={styles.totalLabel}>Collected</Text>
+            <Text style={styles.monthPaymentValue}>{formatCurrency(monthTotals.totalPayments)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.monthHistoryCard}>
+          <View style={styles.monthHistoryHeader}>
+            <Text style={styles.monthHistoryTitle}>Fine History</Text>
+            <Text style={styles.monthHistoryCount}>{monthEntries.length} entries</Text>
+          </View>
+
+          {monthEntries.length === 0 ? (
+            <Text style={styles.monthHistoryEmpty}>No fines or payments in this month.</Text>
+          ) : (
+            monthEntries.slice(0, 6).map((entry) => (
+              <View key={entry.id} style={styles.monthHistoryRow}>
+                <View style={styles.monthHistoryText}>
+                  <Text style={styles.monthHistoryName}>{entry.studentName}</Text>
+                  <Text style={styles.monthHistoryMeta}>
+                    Roll {entry.rollNumber} | {entry.reason}
+                  </Text>
+                </View>
+                <Text style={[styles.monthHistoryAmount, entry.type === 'fine' ? styles.dangerText : styles.successText]}>
+                  {entry.type === 'fine' ? '+' : '-'}
+                  {formatCurrency(entry.amount)}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
 
         <View style={styles.searchBox}>
@@ -339,6 +452,10 @@ function formatDate(value: string) {
   });
 }
 
+function formatMonth(date: Date) {
+  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
 function getInitials(name: string) {
   return name
     .trim()
@@ -404,6 +521,147 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginTop: 2,
+  },
+  classTabs: {
+    gap: 10,
+    paddingBottom: 14,
+  },
+  classTab: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 54,
+    minWidth: 112,
+    paddingHorizontal: 16,
+  },
+  classTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  classTabText: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  classTabTextActive: {
+    color: colors.surface,
+  },
+  classTabSubject: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  classTabSubjectActive: {
+    color: colors.surface,
+    opacity: 0.75,
+  },
+  monthSelector: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    minHeight: 58,
+    paddingHorizontal: 10,
+  },
+  monthButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  monthText: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  monthSummaryCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    padding: 18,
+  },
+  monthFineValue: {
+    color: colors.danger,
+    fontSize: 30,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  monthPaymentBlock: {
+    alignItems: 'flex-end',
+  },
+  monthPaymentValue: {
+    color: colors.success,
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  monthHistoryCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 16,
+  },
+  monthHistoryHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  monthHistoryTitle: {
+    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  monthHistoryCount: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  monthHistoryEmpty: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  monthHistoryRow: {
+    alignItems: 'center',
+    borderTopColor: colors.divider,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    minHeight: 58,
+    paddingVertical: 10,
+  },
+  monthHistoryText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  monthHistoryName: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  monthHistoryMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  monthHistoryAmount: {
+    fontSize: 15,
+    fontWeight: '800',
   },
   searchBox: {
     alignItems: 'center',

@@ -11,6 +11,7 @@ import {
   saveAppSettings,
   setTeacherPin,
 } from '../../src/storage/settingsStorage';
+import { exportBackup, restoreBackupFromPicker } from '../../src/utils/backupRestore';
 
 export default function SettingsScreen() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
@@ -96,6 +97,44 @@ export default function SettingsScreen() {
       Alert.alert('Save failed', message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const exportAppBackup = async () => {
+    try {
+      await exportBackup();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to export backup.';
+      Alert.alert('Backup failed', message);
+    }
+  };
+
+  const confirmRestoreBackup = () => {
+    Alert.alert(
+      'Restore backup?',
+      'This will replace current classes, students, attendance, fines, and settings with the selected backup file.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: restoreAppBackup,
+        },
+      ]
+    );
+  };
+
+  const restoreAppBackup = async () => {
+    try {
+      const restored = await restoreBackupFromPicker();
+
+      if (restored) {
+        await loadSettings();
+        Alert.alert('Backup restored', 'Your offline data has been restored. Reopen screens to refresh the latest data.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to restore backup.';
+      Alert.alert('Restore failed', message);
     }
   };
 
@@ -188,6 +227,28 @@ export default function SettingsScreen() {
             />
           </>
         ) : null}
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Feather name="database" color={colors.primary} size={22} />
+          <Text style={styles.cardTitle}>Backup and Restore</Text>
+        </View>
+
+        <Text style={styles.helperText}>
+          Save a full offline backup of classes, students, attendance, fine ledger, and settings.
+        </Text>
+
+        <View style={styles.backupActions}>
+          <Pressable style={styles.backupButton} onPress={exportAppBackup}>
+            <Feather name="download" color={colors.surface} size={18} />
+            <Text style={styles.backupButtonText}>Export Backup</Text>
+          </Pressable>
+          <Pressable style={styles.restoreButton} onPress={confirmRestoreBackup}>
+            <Feather name="upload" color={colors.danger} size={18} />
+            <Text style={styles.restoreButtonText}>Restore</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Pressable style={styles.aboutRow} onPress={() => router.push('/about')}>
@@ -398,6 +459,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 14,
     padding: 14,
+  },
+  backupActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  backupButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 24,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  backupButtonText: {
+    color: colors.surface,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  restoreButton: {
+    alignItems: 'center',
+    backgroundColor: colors.dangerSoft,
+    borderRadius: 24,
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  restoreButtonText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '800',
   },
   aboutIcon: {
     alignItems: 'center',

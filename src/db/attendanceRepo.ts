@@ -13,13 +13,18 @@ export async function getAttendanceForMonth(monthStart: string, nextMonthStart: 
   );
 }
 
-export async function getAttendanceForDate(date: string) {
+export async function getAttendanceForDate(date: string, classId?: string) {
   const db = await getDatabase();
 
-  return db.getAllAsync<AttendanceRecord>(
-    'SELECT * FROM attendance_records WHERE date = ? ORDER BY session ASC',
-    [date]
-  );
+  return classId
+    ? db.getAllAsync<AttendanceRecord>(
+        'SELECT * FROM attendance_records WHERE date = ? AND classId = ? ORDER BY session ASC',
+        [date, classId]
+      )
+    : db.getAllAsync<AttendanceRecord>(
+        'SELECT * FROM attendance_records WHERE date = ? ORDER BY session ASC',
+        [date]
+      );
 }
 
 export async function saveDailyAttendance(records: AttendanceInput[]) {
@@ -36,16 +41,16 @@ export async function saveDailyAttendance(records: AttendanceInput[]) {
 
     if (existing) {
       await db.runAsync(
-        'UPDATE attendance_records SET status = ?, updatedAt = ? WHERE id = ?',
-        [record.status, now, attendanceId]
+        'UPDATE attendance_records SET classId = ?, status = ?, updatedAt = ? WHERE id = ?',
+        [record.classId, record.status, now, attendanceId]
       );
     } else {
       await db.runAsync(
         `
-        INSERT INTO attendance_records (id, studentId, date, session, status, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO attendance_records (id, studentId, classId, date, session, status, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `,
-        [attendanceId, record.studentId, record.date, record.session, record.status, now, now]
+        [attendanceId, record.studentId, record.classId, record.date, record.session, record.status, now, now]
       );
     }
 
